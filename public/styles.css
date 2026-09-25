@@ -459,3 +459,35 @@ table.diag-cand-table td { vertical-align: middle; }
   .phase-grid-head,
   .phase-row { grid-template-columns: 1fr; }
 }
+
+/* ---------------- 寿命核算 ---------------- */
+
+.grid.four {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+@media (max-width: 640px) {
+  .grid.four { grid-template-columns: 1fr 1fr; }
+}
+
+.life-grid-head,
+.life-row {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr 1.2fr;
+  gap: 10px;
+  align-items: center;
+}
+.life-grid-head {
+  margin: 10px 0 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.life-row { margin-bottom: 8px; }
+.life-roles { font-size: 12px; color: var(--muted); }
+tr.life-limit td { background: var(--warn-bg); }
+.life-entry { margin-top: 18px; text-align: center; }
+@media (max-width: 640px) {
+  .life-grid-head,
+  .life-row { grid-template-columns: 1fr 1fr; }
+}

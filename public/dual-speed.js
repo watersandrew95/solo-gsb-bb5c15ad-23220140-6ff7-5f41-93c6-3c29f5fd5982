@@ -256,6 +256,32 @@ form.addEventListener('submit', async (ev) => {
       chipList.appendChild(chip);
     }
     changePanel.appendChild(chipList);
+
+    // 寿命核算入口：把选中的固定一级与两档换装一级带入核算页
+    const p1 = data.speeds[0].solution.pairs[1];
+    const p2 = data.speeds[1].solution.pairs[1];
+    const qs = new URLSearchParams({
+      fd: fixed.drive.id,
+      fdt: String(fixed.drive.teeth),
+      fw: fixed.driven.id,
+      fwt: String(fixed.driven.teeth),
+      n1: data.speeds[0].name,
+      a1: p1.drive.id,
+      a1t: String(p1.drive.teeth),
+      b1: p1.driven.id,
+      b1t: String(p1.driven.teeth),
+      n2: data.speeds[1].name,
+      a2: p2.drive.id,
+      a2t: String(p2.drive.teeth),
+      b2: p2.driven.id,
+      b2t: String(p2.driven.teeth),
+    });
+    const lifeEntry = el('div', 'life-entry');
+    lifeEntry.innerHTML =
+      `<a class="btn primary" href="/lifetime?${qs.toString()}">⏳ 前往寿命核算：带入该方案的固定一级与两档换装一级</a>` +
+      '<p class="muted">在核算页填写每档每轮计划输入圈数与各参与齿轮的剩余允许转数，' +
+      '按精确分数逐轮消耗，求全部齿轮均不超限的最多完整轮数。</p>';
+    changePanel.appendChild(lifeEntry);
   } catch (e) {
     resultPanel.hidden = false;
     resultBody.hidden = true;

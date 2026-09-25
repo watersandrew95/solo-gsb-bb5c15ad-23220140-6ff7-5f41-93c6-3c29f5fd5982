@@ -41,6 +41,12 @@ const {
   MAX_FORBIDDEN,
   MAX_RPM: MAX_RESONANCE_RPM,
 } = require('./resonance');
+const {
+  validateLifetimeInput,
+  planLifetime,
+  MAX_INPUT_TURNS,
+  MAX_REMAINING,
+} = require('./lifetime');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -86,6 +92,11 @@ app.get('/phase-reset', (_req, res) => {
 /** 友好访问共振避让转速页：/resonance → /resonance.html */
 app.get('/resonance', (_req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'resonance.html'));
+});
+
+/** 友好访问双档寿命核算页：/lifetime → /lifetime.html */
+app.get('/lifetime', (_req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'lifetime.html'));
 });
 
 /** BigInt 分数安全转为有限小数（用于前端展示） */
@@ -881,12 +892,68 @@ app.post('/api/resonance', (req, res) => {
   });
 });
 
+app.post('/api/lifetime', (req, res) => {
+  const checked = validateLifetimeInput(req.body);
+  if (!checked.ok) return res.status(400).json({ error: checked.error });
+
+  // 精确分数逐轮消耗 → 全部齿轮均不超限的最多完整轮数（恰好达到限额视为可执行）
+  const result = planLifetime(checked.config);
+
+  res.json({
+    fixedStage: {
+      drive: result.fixedStage.drive,
+      driven: result.fixedStage.driven,
+      stageRatio: serializeFrac(result.fixedStage.stageRatio),
+    },
+    speeds: result.speeds.map((sp) => ({
+      name: sp.name,
+      inputTurns: sp.inputTurns.toString(),
+      swapStage: {
+        drive: sp.swapDrive,
+        driven: sp.swapDriven,
+        stageRatio: serializeFrac(sp.swapRatio),
+      },
+      outputRatio: serializeFrac(sp.outputRatio),
+    })),
+    maxInputTurns: MAX_INPUT_TURNS.toString(),
+    maxRemaining: MAX_REMAINING.toString(),
+    gearCount: result.gears.length,
+    rounds: result.rounds.toString(),
+    limitingGears: result.limitingGears,
+    gears: result.gears.map((g) => ({
+      id: g.id,
+      teeth: g.teeth,
+      loads: g.loads.map((l, i) =>
+        l
+          ? {
+              speed: i + 1,
+              speedName: result.speeds[i].name,
+              role: l.role,
+              shaft: l.shaft,
+              shaftRatio: serializeFrac(l.ratio),
+              revolutions: serializeFrac(l.revolutions),
+            }
+          : null,
+      ),
+      perRound: serializeFrac(g.perRound),
+      remaining: g.remaining.toString(),
+      maxRounds: g.maxRounds.toString(),
+      consumed: serializeFrac(g.consumed),
+      margin: serializeFrac(g.margin),
+      atLimit: g.atLimit,
+      limiting: g.limiting,
+    })),
+    message: result.message,
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`齿轮组选配服务已启动： http://localhost:${PORT}`);
   console.log(`  单台选配： http://localhost:${PORT}/`);
   console.log(`  批量装配： http://localhost:${PORT}/batch`);
   console.log(`  缺齿补货： http://localhost:${PORT}/procure`);
   console.log(`  双档换速： http://localhost:${PORT}/dual-speed`);
+  console.log(`  寿命核算： http://localhost:${PORT}/lifetime`);
   console.log(`  带载安全： http://localhost:${PORT}/torque`);
   console.log(`  轴位装配： http://localhost:${PORT}/layout`);
   console.log(`  转速异常定位： http://localhost:${PORT}/diagnose`);

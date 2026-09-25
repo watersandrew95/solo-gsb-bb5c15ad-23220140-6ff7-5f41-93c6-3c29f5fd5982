@@ -70,6 +70,14 @@
 全部安全区间，并**推荐整数转速个数最多的连续安全区间**（并列取起点较小者）；
 无任何安全转速时给出明确提示。
 
+再支持**双档寿命核算**：在双档换速结果页一键把选中的**固定第一级**与**两档换装第二级**
+带入核算页（也可直接进入页面手动填写），填写**每档每轮计划输入的正整数圈数**
+与**每枚参与齿轮的剩余允许转数**（非负整数）。系统按各级齿数比以**精确分数**
+计算每轮每枚齿轮的实际转数：固定级齿轮**累计两档负荷**，跨档重复使用的换装齿轮
+同样累计，未装入该档的不计。取各齿轮 **⌊剩余允许转数 ÷ 每轮消耗⌋** 的最小值，
+得到全部齿轮均不超限时**最多可完整执行的计划轮数**（恰好达到限额视为可执行），
+并展示**逐轮消耗**、**执行后余量**与**共同限制的齿轮**；零轮时明确说明受限原因。
+
 ## 一键启动（Docker Compose，自动安装依赖并构建）
 
 ```bash
@@ -84,6 +92,7 @@ docker compose up --build
 | 批量装配（2～3 台） | **http://localhost:3000/batch**（或 `/batch.html`） |
 | 缺齿补货采购建议（2 台） | **http://localhost:3000/procure**（或 `/procure.html`） |
 | 双档换速（固定一级 + 换装一级） | **http://localhost:3000/dual-speed**（或 `/dual-speed.html`） |
+| 双档寿命核算（逐轮消耗 / 可执行轮数） | **http://localhost:3000/lifetime**（或 `/lifetime.html`） |
 | 带载安全选配（扭矩校核） | **http://localhost:3000/torque**（或 `/torque.html`） |
 | 轴位装配（定轴距 / 模数逐轴安装） | **http://localhost:3000/layout**（或 `/layout.html`） |
 | 转速异常定位（转数观测 / 倍率定位） | **http://localhost:3000/diagnose**（或 `/diagnose.html`） |
@@ -103,9 +112,9 @@ npm start
 
 访问 http://localhost:3000 ，批量装配页 http://localhost:3000/batch ，
 缺齿补货页 http://localhost:3000/procure ，双档换速页 http://localhost:3000/dual-speed ，
-带载安全选配页 http://localhost:3000/torque ，轴位装配页 http://localhost:3000/layout ，
-转速异常定位页 http://localhost:3000/diagnose ，装配校准页 http://localhost:3000/phase-reset ，
-共振避让转速页 http://localhost:3000/resonance 。
+寿命核算页 http://localhost:3000/lifetime ，带载安全选配页 http://localhost:3000/torque ，
+轴位装配页 http://localhost:3000/layout ，转速异常定位页 http://localhost:3000/diagnose ，
+装配校准页 http://localhost:3000/phase-reset ，共振避让转速页 http://localhost:3000/resonance 。
 
 ## 必要配置（环境变量）
 
@@ -114,12 +123,12 @@ npm start
 | `PORT` | 容器内服务监听端口（一般无需修改） | `3000` |
 | `APP_PORT` | Compose 映射到宿主机的端口，按需覆盖，例如 `APP_PORT=8080 docker compose up --build` | `3000` |
 
-两个变量控制同一服务端口，九个页面共用；例如改用宿主机 8080 端口后，访问
+两个变量控制同一服务端口，十个页面共用；例如改用宿主机 8080 端口后，访问
 http://localhost:8080 （单台）、http://localhost:8080/batch （批量）、
 http://localhost:8080/procure （缺齿补货）、http://localhost:8080/dual-speed （双档换速）、
-http://localhost:8080/torque （带载安全）、http://localhost:8080/layout （轴位装配）、
-http://localhost:8080/diagnose （转速异常定位）、http://localhost:8080/phase-reset （装配校准）
-与 http://localhost:8080/resonance （共振避让转速）：
+http://localhost:8080/lifetime （寿命核算）、http://localhost:8080/torque （带载安全）、
+http://localhost:8080/layout （轴位装配）、http://localhost:8080/diagnose （转速异常定位）、
+http://localhost:8080/phase-reset （装配校准）与 http://localhost:8080/resonance （共振避让转速）：
 
 ```bash
 APP_PORT=8080 docker compose up --build
@@ -385,6 +394,35 @@ APP_PORT=8080 docker compose up --build
 - 禁用带可能**不包含任何 n·p/q 的整数值**（如倍率 2/3、禁用带 [11,11]：
   n=16→10.67、n=17→11.33），此时反推下界大于上界，标记“无整数转速触发”，不参与合并。
 - 允许省略 `forbidden`（或传空数组）：此时允许范围即唯一段安全区间。
+
+## 使用说明 — 双档寿命核算
+
+1. 在双档换速结果页点击“**前往寿命核算**”，系统把选中的**固定第一级**与
+   **两档换装第二级**通过网址参数一键带入核算页；也可在顶部导航直接进入
+   **寿命核算**（`/lifetime`）手动填写，或点“填入示例”。
+2. 核对第 1 节的双档装配：固定第一级（两档共用）与两个档位各自的换装第二级
+   （编号 / 齿数）。每档内 4 枚齿轮不得重复；同一编号在任何位置必须对应同一齿数
+   （提交时校验，非法返回 400）。
+3. 填写**每档每轮计划输入圈数**（正整数，1～10¹²）：一轮计划 = 档位一按输入轴
+   转 N₁ 圈、档位二按输入轴转 N₂ 圈（两档互斥运行，但同一轮计划中各执行一次）。
+4. 第 2 节按装配自动生成**参与齿轮清单**（固定级 2 枚 + 两档换装级去重后的齿轮，
+   随第 1 节填写自动刷新并保留已填数值），逐枚填写**剩余允许转数**
+   （非负整数，0～10¹⁸，单位：转）。
+5. 点击“开始寿命核算”，系统按各级齿数比以**精确分数**计算每轮每枚齿轮的实际转数：
+   - 输入轴（固定级主动轮）：该档每轮转 N_s 圈；
+   - 中间轴（固定级从动轮、换装级主动轮）：该档每轮转 N_s × 固定主动齿 / 固定从动齿 圈；
+   - 输出轴（换装级从动轮）：该档每轮转 N_s ×（固定主动齿 / 固定从动齿）
+     ×（换装主动齿 / 换装从动齿）圈；
+   - 固定级齿轮**累计两档负荷**，跨档重复使用的换装齿轮同样累计，未装入该档的不计。
+6. 结果区依次展示：
+   - **双档装配与各轴转速比**（分数 + 小数）；
+   - **逐轮消耗表**：每枚齿轮按档拆分的负荷、每轮合计消耗、剩余允许转数与
+     单齿轮可执行轮数 ⌊剩余 ÷ 每轮消耗⌋，限制齿轮行高亮；
+   - **最多可完整执行的计划轮数**（各齿轮单轮数的最小值，**恰好达到限额视为可执行**）、
+     **共同限制的齿轮**（再执行 1 轮将超限者）与**执行后余量表**
+     （累计消耗、余量，“恰好用尽”单独标注）。
+7. **零轮时明确说明受限原因**：列出每轮消耗已超过其剩余允许转数、
+   连 1 轮都无法完整执行的齿轮（每轮消耗 vs 剩余允许转数）。
 
 ## HTTP 接口
 
@@ -741,6 +779,66 @@ APP_PORT=8080 docker compose up --build
 - 所有端点、个数均可能超过 JS 安全整数范围，统一以**字符串**返回；
   倍率为约分分数 `num/den` 并附 `decimal`，反推全程 BigInt 运算，无精度损失。
 
+### `POST /api/lifetime`（双档寿命核算）
+
+```json
+{
+  "fixedStage": {
+    "drive": { "id": "G1", "teeth": 10 },
+    "driven": { "id": "G2", "teeth": 60 }
+  },
+  "speeds": [
+    {
+      "name": "档位一",
+      "inputTurns": "120",
+      "swapStage": { "drive": { "id": "G3", "teeth": 20 }, "driven": { "id": "G4", "teeth": 40 } }
+    },
+    {
+      "name": "档位二",
+      "inputTurns": "90",
+      "swapStage": { "drive": { "id": "G3", "teeth": 20 }, "driven": { "id": "G5", "teeth": 30 } }
+    }
+  ],
+  "remaining": [
+    { "id": "G1", "turns": "100000" },
+    { "id": "G2", "turns": "9010" },
+    { "id": "G3", "turns": "9000" },
+    { "id": "G4", "turns": "5000" },
+    { "id": "G5", "turns": "4000" }
+  ]
+}
+```
+
+上例（G3 跨档重复使用）返回 `rounds: "257"`、`limitingGears: ["G2", "G3"]`：
+G2 / G3 每轮各消耗 35 转（120/6 + 90/6），单齿轮可执行 ⌊9010/35⌋ = ⌊9000/35⌋ = 257 轮，
+为全部齿轮的最小值；执行 257 轮后 G2 余 15 转、G3 余 5 转。
+
+- `fixedStage` 为两档共用的固定第一级（有向齿轮对，`drive` / `driven` 各含唯一
+  `id` 与 **1～100000** 的正整数 `teeth`，两者不得相同）。
+- `speeds` 必须恰好 **2** 个档位：`name` 可省略（默认“档位 1/2”）；
+  `inputTurns` 为该档**每轮计划输入圈数**（**1～10¹² 的正整数**，数字或纯数字字符串）；
+  `swapStage` 为该档换装第二级（规则同 `fixedStage`）。
+  **每档内 4 枚齿轮（固定级 2 枚 + 换装级 2 枚）不得重复**；两档换装级允许使用
+  相同实物齿轮；**同一编号在任何位置必须对应同一齿数**，违反返回 **400**。
+- `remaining` 必须**恰好覆盖全部参与齿轮**（固定级 2 枚 + 两档换装级去重后的齿轮，
+  缺少或多余均返回 400 并指明编号）；每枚 `turns` 为**剩余允许转数**
+  （**0～10¹⁸ 的非负整数**，数字或纯数字字符串）。
+- 返回：
+  - `fixedStage` / `speeds[]`：各级配对与速比（`stageRatio`）、每档输出轴相对
+    输入轴的转速比 `outputRatio`（分数 + 小数）与每轮计划输入圈数 `inputTurns`；
+  - `gearCount` / `gears[]`：逐枚参与齿轮给出 `loads[]`（按档拆分：未装入该档为
+    `null`，否则含 `role` / `shaft` / 该轴转速比 `shaftRatio` / 该档每轮实际转数
+    `revolutions`）、每轮合计消耗 `perRound`、剩余允许转数 `remaining`、
+    单齿轮可执行轮数 `maxRounds`（⌊remaining ÷ perRound⌋）、执行 `rounds` 轮后的
+    累计消耗 `consumed` 与余量 `margin`（分数 + 小数）、`atLimit`
+    （是否恰好用尽）与 `limiting`（是否为共同限制齿轮）；
+  - `rounds`：全部齿轮均不超限的**最多可完整执行轮数**（各 `maxRounds` 的最小值，
+    恰好达到限额视为可执行；字符串，可能超过 JS 安全整数）；
+  - `limitingGears`：共同限制的齿轮编号清单（再执行 1 轮将超限）；
+  - `message`：面向页面的中文结论；**零轮时列出受限齿轮**（每轮消耗已超过其
+    剩余允许转数，连 1 轮都无法完整执行）。
+- 逐轮消耗、余量与轮数求解全部使用 BigInt 精确分数 / 整数运算，无浮点误差。
+
 ## 计算与排序规则
 
 - 每级转速比 = 主动轮齿数 / 从动轮齿数；总速比 = 各级速比之积（全程约分分数）。
@@ -815,19 +913,33 @@ APP_PORT=8080 docker compose up --build
 - 安全区间为合并后被排除区间在 [L, R] 内的补集；推荐取整数个数（end−start+1）
   最大的一段，并列取起点最小者；全部计算均为 BigInt 整数 / 分数运算。
 
+### 双档寿命核算的逐轮消耗与轮数求解
+
+- 各轴相对输入轴的转速比按齿数连乘：输入轴 = 1，中间轴 = 固定主动齿 / 固定从动齿，
+  输出轴 = 中间轴 × 换装主动齿 / 换装从动齿（BigInt 约分分数，无浮点误差）；
+- 每枚齿轮在某档的每轮实际转数 = 该档每轮计划输入圈数 × 所在轴转速比；
+  固定级两枚齿轮两档都在工作、累计两档负荷，跨档重复使用的换装齿轮同样累计，
+  未装入某档的齿轮该档负荷为 0；
+- 单齿轮可执行轮数 = ⌊剩余允许转数 ÷ 每轮合计消耗⌋（BigInt 截断除法，
+  恰好整除即恰好达到限额、视为可执行）；全部齿轮均不超限的最多完整轮数
+  R 取各齿轮该值的最小值，取得最小值的全部齿轮为共同限制齿轮；
+- 执行后余量 = 剩余允许转数 − R × 每轮合计消耗（必为非负分数）；
+  R = 0 时受限齿轮即每轮消耗已超过剩余允许转数的齿轮，逐枚列出说明。
+
 ## 目录结构
 
 ```
 .
 ├── Dockerfile              # 多平台 Node 20 Alpine 镜像，构建时安装依赖
-├── docker-compose.yml      # 一键启动服务（九个页面同端口）
+├── docker-compose.yml      # 一键启动服务（十个页面同端口）
 ├── package.json
 ├── src
-│   ├── server.js           # Express 服务：静态页面 + /api/search + /api/batch + /api/procure + /api/dual-speed + /api/torque + /api/layout + /api/diagnose + /api/phase-reset + /api/resonance
+│   ├── server.js           # Express 服务：静态页面 + /api/search + /api/batch + /api/procure + /api/dual-speed + /api/lifetime + /api/torque + /api/layout + /api/diagnose + /api/phase-reset + /api/resonance
 │   ├── search.js           # 精确分数搜索算法（BigInt）：完整枚举与单台搜索
 │   ├── batch.js            # 批量装配：按集合留优 + 互不冲突组合的分支限界搜索
 │   ├── procure.js          # 缺齿补货：枚举可购子集，复用批量装配的候选分配与规则
 │   ├── dual.js             # 双档换速：共用固定第一级 + 按档换装第二级的完整枚举与择优
+│   ├── lifetime.js         # 双档寿命核算：精确分数逐轮消耗，求全部齿轮均不超限的最多完整轮数
 │   ├── torque.js           # 带载安全：速比配对组 × 全部级次顺序的无损传动扭矩校核
 │   ├── layout.js           # 轴位装配：按轴距/模数穷举有向配对并跨级组合，精确分数校核总速比
 │   ├── diagnose.js         # 转速异常定位：读数误差区间→实测速比区间，逐级求跨观测恒定倍率区间并交叉核对
@@ -837,7 +949,8 @@ APP_PORT=8080 docker compose up --build
     ├── index.html          # 单台选配页面
     ├── batch.html          # 批量装配页面（/batch）
     ├── procure.html        # 缺齿补货采购建议页面（/procure）
-    ├── dual-speed.html     # 双档换速页面（/dual-speed）
+    ├── dual-speed.html     # 双档换速页面（/dual-speed，结果页带寿命核算入口）
+    ├── lifetime.html       # 双档寿命核算页面（/lifetime）
     ├── torque.html         # 带载安全选配页面（/torque）
     ├── layout.html         # 轴位装配页面（/layout）
     ├── diagnose.html       # 转速异常定位页面（/diagnose）
@@ -847,7 +960,8 @@ APP_PORT=8080 docker compose up --build
     ├── app.js              # 单台页脚本
     ├── batch.js            # 批量页脚本
     ├── procure.js          # 补货页脚本
-    ├── dual-speed.js       # 双档换速页脚本
+    ├── dual-speed.js       # 双档换速页脚本（结果页构造寿命核算带入链接）
+    ├── lifetime.js         # 寿命核算页脚本（网址参数带入 / 手动填写）
     ├── torque.js           # 带载安全页脚本
     ├── layout.js           # 轴位装配页脚本
     ├── diagnose.js         # 转速异常定位页脚本
