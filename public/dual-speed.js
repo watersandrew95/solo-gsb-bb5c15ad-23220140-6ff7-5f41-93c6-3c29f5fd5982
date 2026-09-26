@@ -15,6 +15,7 @@ const resultBody = document.getElementById('result-body');
 const fixedPanel = document.getElementById('fixed-panel');
 const speedResults = document.getElementById('speed-results');
 const changePanel = document.getElementById('change-panel');
+const lifeBtn = document.getElementById('btn-life');
 
 const EXAMPLE_GEARS = [
   { id: 'G1', teeth: 10 },
@@ -256,6 +257,26 @@ form.addEventListener('submit', async (ev) => {
       chipList.appendChild(chip);
     }
     changePanel.appendChild(chipList);
+
+    // 寿命核算入口：把选中的固定第一级与两档换装第二级带入核算页
+    lifeBtn.onclick = () => {
+      const payload = {
+        fixedStage: { drive: data.fixedStage.drive, driven: data.fixedStage.driven },
+        speeds: data.speeds.map((sp) => ({
+          name: sp.name,
+          swapStage: {
+            drive: sp.solution.pairs[1].drive,
+            driven: sp.solution.pairs[1].driven,
+          },
+        })),
+      };
+      try {
+        sessionStorage.setItem('lifeScheme', JSON.stringify(payload));
+      } catch (_) {
+        /* 存储不可用时仍跳转，核算页回退为示例方案 */
+      }
+      window.location.href = '/life';
+    };
   } catch (e) {
     resultPanel.hidden = false;
     resultBody.hidden = true;

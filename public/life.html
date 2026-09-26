@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>双档寿命核算 · 齿轮组选配</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <nav class="top-nav">
+      <a href="/">单台选配</a>
+      <a href="/batch">批量装配</a>
+      <a href="/procure">缺齿补货</a>
+      <a href="/dual-speed">双档换速</a>
+      <a href="/life" class="active">寿命核算</a>
+      <a href="/torque">带载安全</a>
+      <a href="/layout">轴位装配</a>
+      <a href="/diagnose">转速异常定位</a>
+      <a href="/phase-reset">装配校准</a>
+      <a href="/resonance">共振避让</a>
+    </nav>
+    <h1>⏳ 双档寿命核算</h1>
+    <p class="subtitle">固定一级 + 两档换装一级 · 按各级齿数比以精确分数计算每轮每枚齿轮实际转数 · 固定级累计两档负荷、跨档复用换装齿轮同样累计 · 求全部齿轮均不超限时最多可完整执行的计划轮数</p>
+  </header>
+
+  <main>
+    <p id="scheme-hint" class="alert" hidden></p>
+
+    <form id="life-form" class="card">
+      <section>
+        <div class="section-head">
+          <h2>1. 双档传动方案（由双档换速结果带入）</h2>
+          <div class="btn-row">
+            <button type="button" id="btn-example" class="btn ghost">填入示例</button>
+            <a class="btn ghost" href="/dual-speed">← 双档换速重新选配</a>
+          </div>
+        </div>
+        <div id="scheme-panel"></div>
+        <p class="muted">
+          参与核算的齿轮：固定第一级 2 枚（两档都工作，累计两档负荷）与两档换装第二级的全部实物齿轮
+          （跨档重复使用的同一实物只登记一次，但累计两档负荷；未装入某档的齿轮该档不计）。
+        </p>
+      </section>
+
+      <section>
+        <h2>2. 每档每轮计划输入圈数（正整数）</h2>
+        <div class="grid two" id="turns-grid"></div>
+      </section>
+
+      <section>
+        <h2>3. 各参与齿轮剩余允许转数（非负整数）</h2>
+        <div class="life-grid-head">
+          <span>齿轮（编号 · 齿数 · 承担角色）</span><span>剩余允许转数（转）</span>
+        </div>
+        <div id="remaining-rows"></div>
+        <p class="muted">
+          剩余允许转数填 <strong>0</strong> 表示该齿轮已到寿命，核算结果将为零轮并明确说明受限原因；
+          恰好达到限额（执行后余量为 0）视为可执行。
+        </p>
+      </section>
+
+      <div class="actions">
+        <button type="submit" class="btn primary">开始寿命核算</button>
+      </div>
+
+      <p id="form-error" class="alert error" hidden></p>
+    </form>
+
+    <section id="result-panel" class="card" hidden>
+      <div class="section-head">
+        <h2>4. 寿命核算结果</h2>
+        <span id="result-summary" class="summary"></span>
+      </div>
+      <p id="verdict-alert" class="alert" hidden></p>
+      <div id="result-detail"></div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <span>每轮每枚齿轮转数 = 计划圈数 × 各级齿数比连乘（精确分数 BigInt）· 固定级与跨档复用齿轮累计两档负荷，未装入该档不计 · 最多完整轮数 = 各齿轮 ⌊剩余允许转数 ÷ 每轮合计消耗⌋ 的最小值 · 恰好达到限额视为可执行</span>
+  </footer>
+
+  <script src="life.js"></script>
+</body>
+</html>

@@ -41,6 +41,7 @@ const {
   MAX_FORBIDDEN,
   MAX_RPM: MAX_RESONANCE_RPM,
 } = require('./resonance');
+const { validateLifeInput, planLife, MAX_TURNS: MAX_LIFE_TURNS } = require('./life');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -86,6 +87,11 @@ app.get('/phase-reset', (_req, res) => {
 /** 友好访问共振避让转速页：/resonance → /resonance.html */
 app.get('/resonance', (_req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'resonance.html'));
+});
+
+/** 友好访问双档寿命核算页：/life → /life.html */
+app.get('/life', (_req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'life.html'));
 });
 
 /** BigInt 分数安全转为有限小数（用于前端展示） */
@@ -881,6 +887,57 @@ app.post('/api/resonance', (req, res) => {
   });
 });
 
+app.post('/api/life', (req, res) => {
+  const checked = validateLifeInput(req.body);
+  if (!checked.ok) return res.status(400).json({ error: checked.error });
+  const { fixedStage, speeds, remaining } = checked;
+
+  // 按齿数比精确计算每轮每枚齿轮实际转数（固定级累计两档、跨档复用累计、未装入不计），
+  // 求全部齿轮均不超限时最多可完整执行的计划轮数
+  const result = planLife(fixedStage, speeds, remaining);
+
+  const serStage = (st) => ({
+    drive: st.drive,
+    driven: st.driven,
+    stageRatio: serializeFrac(st.stageRatio),
+  });
+
+  res.json({
+    maxTurns: MAX_LIFE_TURNS.toString(),
+    fixedStage: serStage(result.fixedStage),
+    speeds: result.speeds.map((sp) => ({
+      name: sp.name,
+      inputTurns: sp.inputTurns.toString(),
+      swapStage: serStage(sp.swapStage),
+      totalRatio: serializeFrac(sp.totalRatio),
+      revs: {
+        fixedDrive: serializeFrac(sp.revs.fixedDrive),
+        fixedDriven: serializeFrac(sp.revs.fixedDriven),
+        swapDrive: serializeFrac(sp.revs.swapDrive),
+        swapDriven: serializeFrac(sp.revs.swapDriven),
+      },
+    })),
+    gearCount: result.gearCount,
+    gears: result.gears.map((g) => ({
+      id: g.id,
+      teeth: g.teeth,
+      roles: g.roles,
+      perSpeed: g.perSpeed.map((f) => (f ? serializeFrac(f) : null)),
+      perRound: serializeFrac(g.perRound),
+      allowance: g.allowance.toString(),
+      maxRounds: g.maxRounds.toString(),
+      limiting: g.limiting,
+      consumed: serializeFrac(g.consumed),
+      remainingAfter: serializeFrac(g.remainingAfter),
+      atLimit: g.atLimit,
+    })),
+    maxRounds: result.maxRounds.toString(),
+    feasible: result.feasible,
+    limitingGears: result.limitingGears,
+    message: result.message,
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`齿轮组选配服务已启动： http://localhost:${PORT}`);
   console.log(`  单台选配： http://localhost:${PORT}/`);
@@ -892,4 +949,5 @@ app.listen(PORT, () => {
   console.log(`  转速异常定位： http://localhost:${PORT}/diagnose`);
   console.log(`  装配校准： http://localhost:${PORT}/phase-reset`);
   console.log(`  共振避让： http://localhost:${PORT}/resonance`);
+  console.log(`  寿命核算： http://localhost:${PORT}/life`);
 });
